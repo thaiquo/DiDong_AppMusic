@@ -33,6 +33,7 @@ type MusicContextType = {
   extendTimer: () => void;
   isFullPlayer: boolean;
   setIsFullPlayer: (val: boolean) => void;
+  playSongById: (id: string) => Promise<void>;
 };
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
@@ -206,6 +207,20 @@ const updateHistory = async (songId: string) => {
     }
   };
 
+  // 🟢 Phát nhạc bằng ID bài hát (dùng cho FeedScreen)
+const playSongById = async (id: string) => {
+  try {
+    const res = await axios.get(`${API_URL}/api/songs/${id}`);
+    if (res.data) {
+      await setSong(res.data);
+      setIsFullPlayer(true); // mở trình phát đầy đủ
+    }
+  } catch (err: any) {
+    console.error("❌ MusicContext: Lỗi khi phát bài theo ID:", err.message);
+  }
+};
+
+
   const playPause = async () => {
     if (!soundRef.current) return;
     const st = await soundRef.current.getStatusAsync();
@@ -287,6 +302,7 @@ const updateHistory = async (songId: string) => {
         extendTimer,
         isFullPlayer,
        setIsFullPlayer,
+       playSongById,
       }}
     >
       {children}

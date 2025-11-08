@@ -9,6 +9,9 @@ import artistRoutes from "./routes/artistRoutes.js";
 import playlistRoutes from "./routes/playlistRoutes.js";
 import homeRoutes from "./routes/homeRoutes.js";
 import commentRoutes from "./routes/commentRoutes.js";
+import postRoutes from "./routes/postRoutes.js";
+import feedLikeRoutes from "./routes/feedLikeRoutes.js";
+import feedCommentRoutes from "./routes/feedCommentRoutes.js";
 
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 
@@ -28,9 +31,10 @@ app.use("/api/artists", artistRoutes);
 app.use("/api/playlists", playlistRoutes);
 app.use("/api/home", homeRoutes);
 app.use("/api/comments", commentRoutes);
-
-
 app.use("/api/follow-playlist", followPlaylistRoutes);
+app.use("/api/posts", postRoutes);
+app.use("/api/feed-likes", feedLikeRoutes);
+app.use("/api/feed-comments", feedCommentRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

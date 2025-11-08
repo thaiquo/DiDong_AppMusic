@@ -11,6 +11,7 @@ import ArtistScreen from "../screens/ArtistScreen";
 import PlaylistScreen from "../screens/PlaylistScreen";
 import FollowingScreen from "../screens/FollowingScreen";
 import HistoryScreen from "../screens/HistoryScreen";
+import FeedScreen from "../screens/FeedScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -31,6 +32,7 @@ export default function AppNavigator() {
       <Stack.Screen name="PlaylistScreen" component={PlaylistScreen} />
       <Stack.Screen name="FollowingScreen" component={FollowingScreen} />
       <Stack.Screen name="HistoryScreen" component={HistoryScreen} />
+      <Stack.Screen name="FeedScreen" component={FeedScreen} />
     </Stack.Navigator>
   );
 }

@@ -16,6 +16,7 @@ export type RootStackParamList = {
   RegisterScreen: undefined;
   MainTabs: undefined;
   ProfileScreen: undefined;
+  FeedStack: undefined;
   ArtistScreen: { artistId: string };
   PlaylistScreen: { playlistId: string };
   FollowingScreen: { userId: string };

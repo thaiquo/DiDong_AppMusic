@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { API_URL } from "../config/api";
 import { useMusic } from "../context/MusicContext";
 import { useNavigation } from "@react-navigation/native";
+import { useIsFocused } from "@react-navigation/native";
 
 const FILTERS = [
   { key: "favorites", label: "Your favorites" },
@@ -22,6 +23,8 @@ const FILTERS = [
   { key: "artists", label: "Following artists" },
   { key: "followPlaylists", label: "Followed playlists" },
   { key: "comments", label: "Your comments" },
+  { key: "likefeed", label: "Liked feeds" },
+  { key: "commentfeed", label: "Commented feeds" },
 ];
 
 export default function LibraryScreen() {
@@ -39,6 +42,10 @@ export default function LibraryScreen() {
   const [artists, setArtists] = useState<any[]>([]);
   const [followPlaylists, setFollowPlaylists] = useState<any[]>([]);
   const [comments, setComments] = useState<any[]>([]);
+  const [likeFeeds, setLikeFeeds] = useState<any[]>([]);
+  const [commentFeeds, setCommentFeeds] = useState<any[]>([]);
+
+    const isFocused = useIsFocused();
 
   // get user info
   useEffect(() => {
@@ -53,15 +60,18 @@ export default function LibraryScreen() {
 
   // fetch all library data
   useEffect(() => {
-    if (!userId) return;
+    if (!userId  || !isFocused) return;
     (async () => {
       setLoading(true);
       try {
-        const [userRes, hisRes, plRes, cmRes] = await Promise.all([
+        const [userRes, hisRes, plRes, cmRes,likeRes,commentFeedRes,] = await Promise.all([
           axios.get(`${API_URL}/api/users/${userId}`),
           axios.get(`${API_URL}/api/users/${userId}/history`),
           axios.get(`${API_URL}/api/follow-playlist/user/${userId}`),
           axios.get(`${API_URL}/api/comments/user/${userId}`),
+          axios.get(`${API_URL}/api/feed-likes/user/${userId}`),
+          axios.get(`${API_URL}/api/feed-comments/user/${userId}`),
+
         ]);
 
         setFavoriteSongs(userRes.data.favoriteSongs || []);
@@ -69,13 +79,17 @@ export default function LibraryScreen() {
         setHistory(hisRes.data || []);
         setFollowPlaylists(plRes.data || []);
         setComments(cmRes.data || []);
+        setLikeFeeds(likeRes.data || []);
+        setCommentFeeds(commentFeedRes.data || []);
       } catch (err) {
         console.warn("❌ Error loading library:", err);
       } finally {
         setLoading(false);
       }
     })();
-  }, [userId]);
+  }, [userId,isFocused]);
+
+  
 
   // search filter for favorites
   const filteredFavs = favoriteSongs.filter(
@@ -151,6 +165,78 @@ export default function LibraryScreen() {
                   <Text style={styles.songArtist}>{song.artist}</Text>
                 </View>
                 <Ionicons name="heart" size={22} color="#00B2FF" />
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+      )}
+
+          {/* LIKED FEEDS */}
+      {selected === "likefeed" && (
+        <ScrollView>
+          {likeFeeds.length === 0 ? (
+            <Text style={styles.noData}>Bạn chưa tim bài viết nào.</Text>
+          ) : (
+            likeFeeds.map((f) => (
+              <TouchableOpacity
+                key={f._id}
+                style={styles.feedRow}
+                onPress={() =>
+                  navigation.navigate("FeedStack", {
+                    screen: "FeedScreen",
+                    params: { focusPostId: f.postId._id },
+                  })
+                }
+              >
+                <Image
+                  source={{ uri: f.postId.songId?.thumbnail }}
+                  style={styles.feedImg}
+                />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.feedTitle}>
+                    {f.postId.songId?.title || "Bài nhạc"}
+                  </Text>
+                  <Text style={styles.feedUser}>
+                    bởi {f.postId.userId?.username || "Người dùng"}
+                  </Text>
+                </View>
+                <Ionicons name="heart" size={20} color="#ff4b4b" />
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+      )}
+
+      {/* COMMENTED FEEDS */}
+      {selected === "commentfeed" && (
+        <ScrollView>
+          {commentFeeds.length === 0 ? (
+            <Text style={styles.noData}>Bạn chưa bình luận bài đăng nào.</Text>
+          ) : (
+            commentFeeds.map((c) => (
+              <TouchableOpacity
+                key={c._id}
+                style={styles.feedRow}
+                onPress={() =>
+                  navigation.navigate("FeedStack", {
+                    screen: "FeedScreen",
+                    params: { focusPostId: c.postId._id },
+                  })
+                }
+              >
+                <Image
+                  source={{ uri: c.postId.songId?.thumbnail }}
+                  style={styles.feedImg}
+                />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.feedTitle}>
+                    {c.postId.songId?.title || "Bài hát"}
+                  </Text>
+                  <Text style={styles.commentText}>
+                    “{c.content.slice(0, 50)}...”
+                  </Text>
+                </View>
+                <Ionicons name="chatbubble" size={18} color="#00B2FF" />
               </TouchableOpacity>
             ))
           )}
@@ -359,4 +445,16 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   viewAllText: { color: "#7b2ff7", fontWeight: "600", marginRight: 4 },
+   feedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+    paddingBottom: 6,
+  },
+  feedImg: { width: 60, height: 60, borderRadius: 10 },
+  feedTitle: { fontWeight: "600", color: "#000", fontSize: 15 },
+  feedUser: { color: "#666", fontSize: 13 },
+
 });

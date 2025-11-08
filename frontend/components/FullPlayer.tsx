@@ -9,6 +9,7 @@ import {
   Alert,
   TextInput,
   ScrollView,
+  Modal,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Slider from "@react-native-community/slider";
@@ -42,6 +43,10 @@ export default function FullPlayer({ song, onMinimize }: any) {
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
   const [user, setUser] = useState<any>(null);
+
+  // ➕ Thêm state cho chia sẻ
+  const [showShare, setShowShare] = useState(false);
+  const [caption, setCaption] = useState("");
 
   // 📦 Lấy user và kiểm tra like
   useEffect(() => {
@@ -90,17 +95,14 @@ export default function FullPlayer({ song, onMinimize }: any) {
     }
 
     try {
-      // xử lý optimistic UI
       setIsLiked((prev) => !prev);
       setLikes((prev: number) => (isLiked ? Math.max(0, prev - 1) : prev + 1));
-
 
       const res = await axios.post(`${API_URL}/api/songs/like`, {
         songId: song._id,
         userId: user._id,
       });
 
-      // đồng bộ lại dữ liệu chính xác
       setIsLiked(res.data.liked);
       setLikes(res.data.likeCount);
 
@@ -120,19 +122,15 @@ export default function FullPlayer({ song, onMinimize }: any) {
     if (!newComment.trim()) return;
 
     try {
-      // ✅ backend mới dùng field `song` và `user`
       const res = await axios.post(`${API_URL}/api/comments/add`, {
-           song: song._id,
-           user: user._id,
-           content: newComment.trim(),
-          });
-
+        song: song._id,
+        user: user._id,
+        content: newComment.trim(),
+      });
 
       setNewComment("");
-      // Cập nhật comment tại chỗ
       setComments((prev) => [res.data.comment, ...prev]);
       song.commentCount = res.data.commentCount;
-      // load lại nếu cần
       fetchComments();
     } catch (err: any) {
       console.warn("⚠️ Lỗi gửi bình luận:", err.message);
@@ -140,29 +138,50 @@ export default function FullPlayer({ song, onMinimize }: any) {
   };
 
   // 💬 Xóa bình luận
-const deleteComment = async (commentId: string) => {
-  if (!user) return;
+  const deleteComment = async (commentId: string) => {
+    if (!user) return;
 
-  Alert.alert("Xác nhận", "Bạn có chắc muốn xóa bình luận này?", [
-    { text: "Hủy", style: "cancel" },
-    {
-      text: "Xóa",
-      style: "destructive",
-      onPress: async () => {
-        try {
-          await axios.delete(`${API_URL}/api/comments/${commentId}`, {
-            data: { userId: user._id },
-          });
-          setComments((prev) => prev.filter((c) => c._id !== commentId));
-        } catch (err: any) {
-          console.warn("⚠️ Lỗi xóa bình luận:", err.message);
-          Alert.alert("Lỗi", "Không thể xóa bình luận của người khác!");
-        }
+    Alert.alert("Xác nhận", "Bạn có chắc muốn xóa bình luận này?", [
+      { text: "Hủy", style: "cancel" },
+      {
+        text: "Xóa",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await axios.delete(`${API_URL}/api/comments/${commentId}`, {
+              data: { userId: user._id },
+            });
+            setComments((prev) => prev.filter((c) => c._id !== commentId));
+          } catch (err: any) {
+            console.warn("⚠️ Lỗi xóa bình luận:", err.message);
+            Alert.alert("Lỗi", "Không thể xóa bình luận của người khác!");
+          }
+        },
       },
-    },
-  ]);
-};
+    ]);
+  };
 
+  // 📤 Chia sẻ bài hát lên Feed
+  const shareToFeed = async () => {
+    if (!user) {
+      Alert.alert("Thông báo", "Vui lòng đăng nhập để chia sẻ bài hát!");
+      return;
+    }
+    try {
+      await axios.post(`${API_URL}/api/posts`, {
+        userId: user._id,
+        songId: song._id,
+        caption: caption.trim() || "🎧 Đang chill cùng nhạc!",
+      });
+
+      Alert.alert("✅ Thành công", "Bài hát đã được chia sẻ lên bảng tin!");
+      setShowShare(false);
+      setCaption("");
+      // Không gọi navigation ở đây vì component nằm ngoài NavigationContainer
+    } catch (err: any) {
+      Alert.alert("Lỗi", "Không thể chia sẻ bài hát, thử lại sau.");
+    }
+  };
 
   // ⏱ Format thời gian
   const fmt = (ms?: number) => {
@@ -204,6 +223,14 @@ const deleteComment = async (commentId: string) => {
           {isTimerActive && (
             <Text style={styles.timerText}>{fmtTimer(timerRemaining)}</Text>
           )}
+        </TouchableOpacity>
+
+        {/* ⋯ Chia sẻ */}
+        <TouchableOpacity
+          style={styles.moreBtn}
+          onPress={() => setShowShare(true)}
+        >
+          <Ionicons name="ellipsis-horizontal" size={28} color="#fff" />
         </TouchableOpacity>
 
         <Image source={{ uri: song.thumbnail }} style={styles.cover} />
@@ -264,34 +291,29 @@ const deleteComment = async (commentId: string) => {
         {/* 💬 Bình luận */}
         <View style={styles.commentBox}>
           <Text style={styles.commentTitle}>Bình luận</Text>
-          <ScrollView style={styles.commentList} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.commentList}
+            showsVerticalScrollIndicator={false}
+          >
             {comments.length === 0 ? (
               <Text style={{ color: "#ccc" }}>Chưa có bình luận nào.</Text>
             ) : (
               comments.map((c, i) => (
                 <View key={i} style={styles.commentItem}>
                   <Image
-                    source={{ uri: c.user?.avatar || "https://i.pravatar.cc/50" }}
+                    source={{
+                      uri: c.user?.avatar || "https://i.pravatar.cc/50",
+                    }}
                     style={styles.commentAvatar}
                   />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.commentUser}>{c.user?.username}</Text>
                     <Text style={styles.commentText}>{c.content}</Text>
                   </View>
-                  {/* Hiện nút xóa nếu là bình luận của user hiện tại */}
                   {user && c.user?._id === user._id && (
                     <TouchableOpacity
                       style={{ marginLeft: 8, padding: 4 }}
-                      onPress={() =>
-                        Alert.alert(
-                          "Xác nhận",
-                          "Bạn có chắc muốn xóa bình luận này?",
-                          [
-                            { text: "Hủy", style: "cancel" },
-                            { text: "Xóa", style: "destructive", onPress: () => deleteComment(c._id) },
-                          ]
-                        )
-                      }
+                      onPress={() => deleteComment(c._id)}
                     >
                       <Ionicons name="trash" size={18} color="#ff4b4b" />
                     </TouchableOpacity>
@@ -314,18 +336,53 @@ const deleteComment = async (commentId: string) => {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* 📤 Modal chia sẻ */}
+        <Modal visible={showShare} transparent animationType="fade">
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Chia sẻ bài hát</Text>
+
+              <Image
+                source={{ uri: song.thumbnail }}
+                style={styles.modalThumbnail}
+              />
+              <Text style={styles.modalSongTitle}>{song.title}</Text>
+              <Text style={styles.modalArtist}>{song.artist}</Text>
+
+              <TextInput
+                placeholder="Viết cảm nghĩ của bạn..."
+                placeholderTextColor="#aaa"
+                style={styles.modalInput}
+                value={caption}
+                onChangeText={setCaption}
+                multiline
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalBtn, { backgroundColor: "#888" }]}
+                  onPress={() => setShowShare(false)}
+                >
+                  <Text style={styles.modalBtnText}>Hủy</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalBtn, { backgroundColor: "#1DB954" }]}
+                  onPress={shareToFeed}
+                >
+                  <Text style={styles.modalBtnText}>Đăng</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
 }
 
-
 const styles = StyleSheet.create({
-  full: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#000",
-    zIndex: 10000,
-  },
+  full: { ...StyleSheet.absoluteFillObject, backgroundColor: "#000", zIndex: 10000 },
   bg: { position: "absolute", width, height, resizeMode: "cover" },
   overlay: {
     flex: 1,
@@ -341,6 +398,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
+  moreBtn: { position: "absolute", top: 10, right: 70 },
   timerText: { color: "#fff", marginLeft: 8, fontSize: 12 },
   cover: { width: 300, height: 300, borderRadius: 16, marginBottom: 10 },
   title: { color: "#fff", fontSize: 22, fontWeight: "700" },
@@ -385,4 +443,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     fontSize: 14,
   },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#1c1c1c",
+    width: "85%",
+    borderRadius: 16,
+    padding: 20,
+    alignItems: "center",
+  },
+  modalTitle: { color: "#fff", fontSize: 18, fontWeight: "600", marginBottom: 10 },
+  modalThumbnail: { width: 120, height: 120, borderRadius: 12, marginBottom: 10 },
+  modalSongTitle: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  modalArtist: { color: "#bbb", marginBottom: 10 },
+  modalInput: {
+    backgroundColor: "rgba(255,255,255,0.1)",
+    color: "#fff",
+    width: "100%",
+    borderRadius: 8,
+    padding: 10,
+    textAlignVertical: "top",
+    minHeight: 70,
+    marginBottom: 14,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  modalBtn: {
+    flex: 1,
+    borderRadius: 8,
+    paddingVertical: 10,
+    marginHorizontal: 5,
+    alignItems: "center",
+  },
+  modalBtnText: { color: "#fff", fontWeight: "600" },
 });
