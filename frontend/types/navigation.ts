@@ -1,4 +1,5 @@
 
+import SearchScreen from './../screens/SearchScreen';
 // export type RootStackParamList = {
 //   LaunchWelcomeScreen: undefined;
 //   LoginScreen: undefined;
@@ -17,8 +18,11 @@ export type RootStackParamList = {
   MainTabs: undefined;
   ProfileScreen: undefined;
   FeedStack: undefined;
+  SearchScreen: undefined;
   ArtistScreen: { artistId: string };
   PlaylistScreen: { playlistId: string };
   FollowingScreen: { userId: string };
   HistoryScreen: { userId: string };
+  EditProfileScreen: undefined;
+  
 };

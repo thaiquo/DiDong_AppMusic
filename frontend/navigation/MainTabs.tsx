@@ -6,10 +6,12 @@ import HomeStack from "./stacks/HomeStack";
 import SearchStack from "./stacks/SearchStack";
 import FeedStack from "./stacks/FeedStack";
 import LibraryStack from "./stacks/LibraryStack";
+import { useUser } from "../context/UserContext";
 
 const Tab = createBottomTabNavigator();
 
 export default function MainTabs() {
+  const { user, requireAuth } = useUser();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -36,7 +38,20 @@ export default function MainTabs() {
       <Tab.Screen name="HomeStack" component={HomeStack} options={{ title: "Home" }} />
       <Tab.Screen name="SearchStack" component={SearchStack} options={{ title: "Search" }} />
       <Tab.Screen name="FeedStack" component={FeedStack} options={{ title: "Feed" }} />
-      <Tab.Screen name="LibraryStack" component={LibraryStack} options={{ title: "Library" }} />
+     <Tab.Screen
+        name="LibraryStack"
+        component={LibraryStack}
+        options={{ title: "Library" }}
+        listeners={{
+          tabPress: (e) => {
+            if (!user || user.role === "guest") {
+              e.preventDefault();
+              requireAuth("Đăng nhập để mở Library và đồng bộ thư viện của bạn.");
+            }
+          },
+        }}
+      />
+
     </Tab.Navigator>
   );
 }

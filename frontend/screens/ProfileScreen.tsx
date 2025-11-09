@@ -30,55 +30,80 @@ export default function ProfileScreen() {
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   const { reset } = useMusic();
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const json = await AsyncStorage.getItem("user");
-        if (!json) {
-          navigation.replace("LoginScreen");
-          return;
-        }
+useEffect(() => {
+  (async () => {
+    try {
+      const json = await AsyncStorage.getItem("user");
 
-        const u = JSON.parse(json);
-        setUser(u);
-
-        // ✅ Lấy danh sách nghệ sĩ đang theo dõi
-        const followRes = await fetch(`${API_URL}/api/users/${u._id}`);
-        const userData = await followRes.json();
-        setFollowingArtists(userData.followingArtists || []);
-
-        // ✅ Lấy lịch sử nghe (limit 2 bài)
-        const historyRes = await fetch(`${API_URL}/api/users/${u._id}/history`);
-        const historyData = await historyRes.json();
-        setRecentSongs((historyData || []).slice(0, 2));
-      } catch (err) {
-        console.error("❌ Lỗi tải dữ liệu hồ sơ:", err);
+      // ❌ Nếu chưa có user
+      if (!json) {
+        Alert.alert(
+          "Yêu cầu đăng nhập",
+          "Bạn cần đăng nhập hoặc tạo tài khoản để xem hồ sơ cá nhân.",
+          [
+            { text: "Đăng nhập", onPress: () => navigation.replace("LoginScreen") },
+            { text: "Đăng ký", onPress: () => navigation.replace("RegisterScreen") },
+            { text: "Để sau", style: "cancel", onPress: () => navigation.goBack() },
+          ]
+        );
+        return;
       }
-    })();
-  }, [navigation]);
+
+      const u = JSON.parse(json);
+
+      // ❌ Nếu user là guest
+      if (u.role === "guest") {
+        Alert.alert(
+          "Chế độ khách",
+          "Bạn đang ở chế độ khách. Đăng nhập để xem và chỉnh sửa hồ sơ cá nhân.",
+          [
+            { text: "Đăng nhập", onPress: () => navigation.replace("LoginScreen") },
+            { text: "Đăng ký", onPress: () => navigation.replace("RegisterScreen") },
+            { text: "Đóng", style: "cancel", onPress: () => navigation.goBack() },
+          ]
+        );
+        return;
+      }
+
+      // ✅ Nếu là user thật → tiếp tục tải dữ liệu
+      setUser(u);
+
+      const followRes = await fetch(`${API_URL}/api/users/${u._id}`);
+      const userData = await followRes.json();
+      setFollowingArtists(userData.followingArtists || []);
+
+      const historyRes = await fetch(`${API_URL}/api/users/${u._id}/history`);
+      const historyData = await historyRes.json();
+      setRecentSongs((historyData || []).slice(0, 2));
+    } catch (err) {
+      console.error("❌ Lỗi tải dữ liệu hồ sơ:", err);
+    }
+  })();
+}, [navigation]);
+
 
   const handleLogout = async () => {
-    Alert.alert("Đăng xuất", "Bạn có chắc muốn đăng xuất?", [
-      { text: "Hủy", style: "cancel" },
-      {
-        text: "Đăng xuất",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            setLoading(true);
-            await AsyncStorage.removeItem("user");
-            reset();
-            setLoading(false);
-            Alert.alert("Thành công", "Đăng xuất thành công!");
-            navigation.replace("LoginScreen");
-          } catch (err: any) {
-            setLoading(false);
-            Alert.alert("Lỗi", "Đăng xuất thất bại, vui lòng thử lại.");
-          }
-        },
+  Alert.alert("Đăng xuất", "Bạn có chắc muốn đăng xuất?", [
+    { text: "Hủy", style: "cancel" },
+    {
+      text: "Đăng xuất",
+      style: "destructive",
+      onPress: async () => {
+        try {
+          setLoading(true);
+          await AsyncStorage.removeItem("user");
+          reset();           // reset music context
+          setLoading(false);
+          Alert.alert("Thành công", "Đăng xuất thành công!");
+          navigation.replace("LaunchWelcomeScreen"); // ✅ về màn chào ban đầu
+        } catch (err: any) {
+          setLoading(false);
+          Alert.alert("Lỗi", "Đăng xuất thất bại, vui lòng thử lại.");
+        }
       },
-    ]);
-  };
+    },
+  ]);
+};
 
   return (
     <ScrollView style={styles.container}>
@@ -89,7 +114,11 @@ export default function ProfileScreen() {
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Hồ sơ</Text>
-          <Ionicons name="settings-outline" size={24} color="#fff" />
+          {/* icon setting */}
+          <TouchableOpacity onPress={() => navigation.navigate("EditProfileScreen")}>
+            <Ionicons name="settings-outline" size={24} color="#fff" />
+          </TouchableOpacity>
+
         </View>
 
         <View style={styles.profileSection}>

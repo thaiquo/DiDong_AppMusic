@@ -12,6 +12,8 @@ import PlaylistScreen from "../screens/PlaylistScreen";
 import FollowingScreen from "../screens/FollowingScreen";
 import HistoryScreen from "../screens/HistoryScreen";
 import FeedScreen from "../screens/FeedScreen";
+import SearchScreen from "../screens/SearchScreen";
+import EditProfileScreen from "../screens/EditProfileScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -33,6 +35,8 @@ export default function AppNavigator() {
       <Stack.Screen name="FollowingScreen" component={FollowingScreen} />
       <Stack.Screen name="HistoryScreen" component={HistoryScreen} />
       <Stack.Screen name="FeedScreen" component={FeedScreen} />
+      <Stack.Screen name="SearchScreen" component={SearchScreen} />
+      <Stack.Screen name="EditProfileScreen" component={EditProfileScreen} />
     </Stack.Navigator>
   );
 }

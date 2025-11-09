@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import User from "../models/User.js";
 import Song from "../models/Song.js";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+
 
 const generateToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
@@ -133,5 +135,35 @@ export const getUserData = async (req, res) => {
     res.json(user);
   } catch (error) {
     res.status(500).json({ message: "Error fetching user data", error });
+  }
+};
+// ✅ Cập nhật thông tin người dùng (hồ sơ cá nhân)
+export const updateUserProfile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { username, email, password, avatar } = req.body;
+
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (username) user.username = username;
+    if (email) user.email = email;
+    if (avatar) user.avatar = avatar;
+
+    if (password && password.trim() !== "") {
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(password, salt);
+    }
+
+    const updated = await user.save();
+    res.json({
+      _id: updated._id,
+      username: updated.username,
+      email: updated.email,
+      avatar: updated.avatar,
+    });
+  } catch (err) {
+    console.error("❌ updateUserProfile error:", err);
+    res.status(500).json({ message: "Update failed", error: err.message });
   }
 };

@@ -15,6 +15,7 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types/navigation";
 import { API_URL } from "../config/api";
+import { useUser } from "../context/UserContext";
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, "LoginScreen">;
 
@@ -23,7 +24,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation<LoginScreenNavigationProp>();
-
+  const { setUser } = useUser();
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert("Lỗi", "Vui lòng nhập email và mật khẩu");
@@ -41,22 +42,35 @@ export default function LoginScreen() {
       const data = await response.json();
 if (response.ok) {
   console.log("📍 LoginScreen: Login successful, user data:", data);
-  await AsyncStorage.setItem(
-    "user",
-    JSON.stringify({
-      _id: data._id,
-      username: data.username,
-      email: data.email,
-      avatar: data.avatar,
-      token: data.token,
-    })
+
+  // ✅ Tạo object user để set vào Context & AsyncStorage
+  const userData = {
+    _id: data._id,
+    username: data.username,
+    email: data.email,
+    avatar: data.avatar,
+    token: data.token,
+    role: data.role || "customer", // fallback nếu backend không trả role
+  };
+
+  // ✅ Lưu vào AsyncStorage
+  await AsyncStorage.setItem("user", JSON.stringify(userData));
+
+  // ✅ Cập nhật vào UserContext để MainTabs nhận user ngay
+  setUser(userData);
+
+  console.log(
+    "📍 LoginScreen: User saved to AsyncStorage:",
+    await AsyncStorage.getItem("user")
   );
-  console.log("📍 LoginScreen: User saved to AsyncStorage:", await AsyncStorage.getItem("user"));
+
   Alert.alert("Thành công", "Đăng nhập thành công!");
-  navigation.replace("MainTabs"); // ✅ vào layout có 4 tab
+
+  navigation.replace("MainTabs"); // chuyển sang tabs
 } else {
   Alert.alert("Lỗi", data.message || "Đăng nhập thất bại");
 }
+
     } catch (err: any) {
       console.error("❌ LoginScreen: Lỗi đăng nhập:", err.message);
       Alert.alert("Lỗi", "Đã có lỗi xảy ra, vui lòng thử lại");

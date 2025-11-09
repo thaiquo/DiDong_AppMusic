@@ -18,6 +18,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { API_URL } from "../config/api";
 import { useMusic } from "../context/MusicContext";
+import { useUser } from "../context/UserContext";
+
 
 const { width, height } = Dimensions.get("window");
 
@@ -43,6 +45,7 @@ export default function FullPlayer({ song, onMinimize }: any) {
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
   const [user, setUser] = useState<any>(null);
+
 
   // ➕ Thêm state cho chia sẻ
   const [showShare, setShowShare] = useState(false);
@@ -89,10 +92,10 @@ export default function FullPlayer({ song, onMinimize }: any) {
 
   // ❤️ Toggle Like
   const toggleLike = async () => {
-    if (!user) {
-      Alert.alert("Thông báo", "Vui lòng đăng nhập để thích bài hát!");
-      return;
-    }
+     if (!user || user.role === "guest") {
+    Alert.alert("Thông báo", "Chỉ người dùng đã đăng nhập mới có thể thích bài hát!");
+    return;
+  }
 
     try {
       setIsLiked((prev) => !prev);
@@ -115,10 +118,10 @@ export default function FullPlayer({ song, onMinimize }: any) {
 
   // 💬 Gửi bình luận
   const submitComment = async () => {
-    if (!user) {
-      Alert.alert("Thông báo", "Vui lòng đăng nhập để bình luận!");
-      return;
-    }
+    if (!user || user.role === "guest") {
+    Alert.alert("Thông báo", "Bạn cần đăng nhập để bình luận!");
+    return;
+  }
     if (!newComment.trim()) return;
 
     try {
@@ -163,10 +166,11 @@ export default function FullPlayer({ song, onMinimize }: any) {
 
   // 📤 Chia sẻ bài hát lên Feed
   const shareToFeed = async () => {
-    if (!user) {
-      Alert.alert("Thông báo", "Vui lòng đăng nhập để chia sẻ bài hát!");
-      return;
-    }
+     if (!user || user.role === "guest") {
+    Alert.alert("Thông báo", "Chỉ người dùng đăng nhập mới có thể đăng bài lên bảng tin!");
+    return;
+  }
+
     try {
       await axios.post(`${API_URL}/api/posts`, {
         userId: user._id,
@@ -200,7 +204,11 @@ export default function FullPlayer({ song, onMinimize }: any) {
 
   return (
     <SafeAreaView style={styles.full} edges={["top", "bottom"]}>
-      <Image source={{ uri: song.thumbnail }} style={styles.bg} blurRadius={40} />
+      <Image
+        source={{ uri: song.thumbnail }}
+        style={styles.bg}
+        blurRadius={40}
+      />
 
       <View
         style={[
@@ -228,7 +236,30 @@ export default function FullPlayer({ song, onMinimize }: any) {
         {/* ⋯ Chia sẻ */}
         <TouchableOpacity
           style={styles.moreBtn}
-          onPress={() => setShowShare(true)}
+          onPress={() => {
+            if (!user || user.role === "guest") {
+              Alert.alert(
+                "Yêu cầu đăng nhập",
+                "Bạn cần đăng nhập để chia sẻ bài hát lên bảng tin!",
+                [
+                  {
+                    text: "Đăng nhập",
+                    onPress: () =>
+                      console.log("Chuyển sang login screen nếu cần"),
+                  },
+                  {
+                    text: "Đăng ký",
+                    onPress: () =>
+                      console.log("Chuyển sang register screen nếu cần"),
+                  },
+                  { text: "Để sau", style: "cancel" },
+                ]
+              );
+              return;
+            }
+
+            setShowShare(true); // ✅ Chỉ mở modal nếu user đã đăng nhập
+          }}
         >
           <Ionicons name="ellipsis-horizontal" size={28} color="#fff" />
         </TouchableOpacity>
@@ -238,7 +269,13 @@ export default function FullPlayer({ song, onMinimize }: any) {
         <Text style={styles.artist}>{song.artist}</Text>
 
         {/* ❤️ Like */}
-        <TouchableOpacity style={styles.likeBtn} onPress={toggleLike}>
+        <TouchableOpacity
+          style={[
+            styles.likeBtn,
+            { opacity: user?.role === "guest" ? 0.5 : 1 },
+          ]}
+          onPress={toggleLike}
+        >
           <Ionicons
             name={isLiked ? "heart" : "heart-outline"}
             size={32}
@@ -325,14 +362,29 @@ export default function FullPlayer({ song, onMinimize }: any) {
 
           <View style={styles.inputRow}>
             <TextInput
-              placeholder="Nhập bình luận..."
+              placeholder={
+                !user || user.role === "guest"
+                  ? "Đăng nhập để bình luận..."
+                  : "Nhập bình luận..."
+              }
               placeholderTextColor="#aaa"
-              style={styles.input}
+              style={[
+                styles.input,
+                { color: user?.role === "guest" ? "#999" : "#fff" },
+              ]}
               value={newComment}
               onChangeText={setNewComment}
+              editable={!!user && user.role !== "guest"} // ❌ không cho gõ nếu guest
             />
-            <TouchableOpacity onPress={submitComment}>
-              <Ionicons name="send" size={22} color="#fff" />
+            <TouchableOpacity
+              disabled={!user || user.role === "guest"} // ❌ không gửi nếu guest
+              onPress={submitComment}
+            >
+              <Ionicons
+                name="send"
+                size={22}
+                color={!user || user.role === "guest" ? "#666" : "#fff"}
+              />
             </TouchableOpacity>
           </View>
         </View>
@@ -367,10 +419,28 @@ export default function FullPlayer({ song, onMinimize }: any) {
                   <Text style={styles.modalBtnText}>Hủy</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: "#1DB954" }]}
-                  onPress={shareToFeed}
+                  disabled={!user || user.role === "guest"}
+                  style={[
+                    styles.modalBtn,
+                    {
+                      backgroundColor:
+                        !user || user.role === "guest" ? "#555" : "#1DB954",
+                    },
+                  ]}
+                  onPress={() => {
+                    if (!user || user.role === "guest") {
+                      Alert.alert(
+                        "Yêu cầu đăng nhập",
+                        "Bạn cần đăng nhập để chia sẻ bài hát lên bảng tin!"
+                      );
+                      return;
+                    }
+                    shareToFeed();
+                  }}
                 >
-                  <Text style={styles.modalBtnText}>Đăng</Text>
+                  <Text style={styles.modalBtnText}>
+                    {!user || user.role === "guest" ? "Cần đăng nhập" : "Đăng"}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>

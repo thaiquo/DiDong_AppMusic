@@ -17,11 +17,13 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useIsFocused } from "@react-navigation/native";
 import { useMusic } from "../context/MusicContext";
+import { useUser } from "../context/UserContext";
 
 export default function FeedScreen() {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const { requireAuth } = useUser();
 
   const [showComments, setShowComments] = useState(false);
   const [activePost, setActivePost] = useState<any>(null);
@@ -58,7 +60,7 @@ export default function FeedScreen() {
 
   // ❤️ Like / Unlike
   const toggleLike = async (postId: string) => {
-    if (!user) return;
+     if (!requireAuth("Đăng nhập để thả tim bài viết.")) return;
     try {
       const res = await axios.post(`${API_URL}/api/feed-likes`, {
         userId: user._id,
@@ -99,7 +101,8 @@ export default function FeedScreen() {
   };
 
   const submitComment = async () => {
-    if (!user || !newComment.trim()) return;
+     if (!requireAuth("Đăng nhập để bình luận.")|| !newComment.trim()) return;
+  
     try {
       await axios.post(`${API_URL}/api/feed-comments`, {
         postId: activePost._id,

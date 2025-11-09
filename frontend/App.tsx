@@ -3,9 +3,10 @@ import { View, StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { MusicProvider } from "./context/MusicContext"; 
-import AppNavigator from "./navigation/AppNavigator"; 
-import OverlayPlayer from "./components/OverlayPlayer";  // ⬅️ mini + full “đè” lên trên
+import { MusicProvider } from "./context/MusicContext";
+import { UserProvider } from "./context/UserContext";
+import AppNavigator from "./navigation/AppNavigator";
+import OverlayPlayer from "./components/OverlayPlayer";
 
 export default function App() {
   return (
@@ -13,10 +14,13 @@ export default function App() {
       <MusicProvider>
         <View style={styles.root}>
           <NavigationContainer>
-            <AppNavigator />
+            {/* ✅ Bọc UserProvider Ở TRONG NavigationContainer */}
+            <UserProvider>
+              <AppNavigator />
+            </UserProvider>
           </NavigationContainer>
 
-          {/* Luôn render trên tất cả screen, không che tab */}
+          {/* Luôn đè trên mọi màn hình */}
           <OverlayPlayer />
         </View>
       </MusicProvider>
@@ -24,6 +28,4 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-});
+const styles = StyleSheet.create({ root: { flex: 1 } });
