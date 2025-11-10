@@ -18,6 +18,7 @@ import postRoutes from "./routes/postRoutes.js";
 import followPlaylistRoutes from "./routes/followPlaylistRoutes.js";
 import feedLikeRoutes from "./routes/feedLikeRoutes.js";
 import feedCommentRoutes from "./routes/feedCommentRoutes.js";
+import userPlaylistRoutes from "./routes/playlistUserRoutes.js";
 
 // 🧩 MIDDLEWARE
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
@@ -51,7 +52,7 @@ app.use("/api/posts", postRoutes);
 app.use("/api/follow-playlist", followPlaylistRoutes);
 app.use("/api/feed-likes", feedLikeRoutes);
 app.use("/api/feed-comments", feedCommentRoutes);
-
+app.use("/api/user-playlists", userPlaylistRoutes);
 // ✅ Error Middleware
 app.use(notFound);
 app.use(errorHandler);

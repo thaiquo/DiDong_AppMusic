@@ -11,7 +11,10 @@ import {
   ScrollView,
   Modal,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import Slider from "@react-native-community/slider";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -19,7 +22,6 @@ import axios from "axios";
 import { API_URL } from "../config/api";
 import { useMusic } from "../context/MusicContext";
 import { useUser } from "../context/UserContext";
-
 
 const { width, height } = Dimensions.get("window");
 
@@ -45,7 +47,10 @@ export default function FullPlayer({ song, onMinimize }: any) {
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
   const [user, setUser] = useState<any>(null);
-
+  const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
+  const [userPlaylists, setUserPlaylists] = useState<any[]>([]);
+  const [newPlaylistName, setNewPlaylistName] = useState("");
+  const [showMoreActions, setShowMoreActions] = useState(false);
 
   // ➕ Thêm state cho chia sẻ
   const [showShare, setShowShare] = useState(false);
@@ -90,12 +95,67 @@ export default function FullPlayer({ song, onMinimize }: any) {
     fetchComments();
   }, [song._id]);
 
+  // 📦 Lấy danh sách playlist cá nhân của user
+  const fetchUserPlaylists = async () => {
+    if (!user || user.role === "guest") return;
+    try {
+      const res = await axios.get(`${API_URL}/api/user-playlists/${user._id}`);
+      setUserPlaylists(res.data || []);
+    } catch (err: any) {
+      console.warn("⚠️ Lỗi lấy MyPlaylist:", err.message);
+    }
+  };
+
+  // ➕ Thêm bài hát vào playlist đã chọn
+  const addToExistingPlaylist = async (playlistId: string) => {
+    try {
+      await axios.post(`${API_URL}/api/user-playlists/add-song`, {
+        playlistId,
+        songId: song._id,
+      });
+      Alert.alert("✅ Thành công", "Đã thêm bài hát vào playlist!");
+      setShowAddToPlaylist(false);
+    } catch (err: any) {
+      Alert.alert("Lỗi", "Không thể thêm bài hát vào playlist.");
+    }
+  };
+
+  // 🆕 Tạo playlist mới và thêm bài hát
+  const createNewPlaylist = async () => {
+    if (!newPlaylistName.trim()) {
+      Alert.alert("Lỗi", "Vui lòng nhập tên playlist");
+      return;
+    }
+    try {
+      const res = await axios.post(`${API_URL}/api/user-playlists`, {
+        userId: user._id,
+        title: newPlaylistName.trim(),
+      });
+
+      const playlistId = res.data._id;
+      await axios.post(`${API_URL}/api/user-playlists/add-song`, {
+        playlistId,
+        songId: song._id,
+      });
+
+      Alert.alert("✅ Thành công", "Đã tạo và thêm bài hát vào playlist mới!");
+      setNewPlaylistName("");
+      setShowAddToPlaylist(false);
+    } catch (err: any) {
+      console.warn("⚠️ Lỗi tạo playlist:", err.message);
+      Alert.alert("Lỗi", "Không thể tạo playlist mới.");
+    }
+  };
+
   // ❤️ Toggle Like
   const toggleLike = async () => {
-     if (!user || user.role === "guest") {
-    Alert.alert("Thông báo", "Chỉ người dùng đã đăng nhập mới có thể thích bài hát!");
-    return;
-  }
+    if (!user || user.role === "guest") {
+      Alert.alert(
+        "Thông báo",
+        "Chỉ người dùng đã đăng nhập mới có thể thích bài hát!"
+      );
+      return;
+    }
 
     try {
       setIsLiked((prev) => !prev);
@@ -119,9 +179,9 @@ export default function FullPlayer({ song, onMinimize }: any) {
   // 💬 Gửi bình luận
   const submitComment = async () => {
     if (!user || user.role === "guest") {
-    Alert.alert("Thông báo", "Bạn cần đăng nhập để bình luận!");
-    return;
-  }
+      Alert.alert("Thông báo", "Bạn cần đăng nhập để bình luận!");
+      return;
+    }
     if (!newComment.trim()) return;
 
     try {
@@ -166,10 +226,13 @@ export default function FullPlayer({ song, onMinimize }: any) {
 
   // 📤 Chia sẻ bài hát lên Feed
   const shareToFeed = async () => {
-     if (!user || user.role === "guest") {
-    Alert.alert("Thông báo", "Chỉ người dùng đăng nhập mới có thể đăng bài lên bảng tin!");
-    return;
-  }
+    if (!user || user.role === "guest") {
+      Alert.alert(
+        "Thông báo",
+        "Chỉ người dùng đăng nhập mới có thể đăng bài lên bảng tin!"
+      );
+      return;
+    }
 
     try {
       await axios.post(`${API_URL}/api/posts`, {
@@ -220,7 +283,6 @@ export default function FullPlayer({ song, onMinimize }: any) {
         <TouchableOpacity style={styles.back} onPress={onMinimize}>
           <Ionicons name="chevron-down" size={28} color="#fff" />
         </TouchableOpacity>
-
         {/* ⏱ Hẹn giờ */}
         <TouchableOpacity style={styles.timer} onPress={toggleTimer}>
           <Ionicons
@@ -232,7 +294,6 @@ export default function FullPlayer({ song, onMinimize }: any) {
             <Text style={styles.timerText}>{fmtTimer(timerRemaining)}</Text>
           )}
         </TouchableOpacity>
-
         {/* ⋯ Chia sẻ */}
         <TouchableOpacity
           style={styles.moreBtn}
@@ -240,34 +301,18 @@ export default function FullPlayer({ song, onMinimize }: any) {
             if (!user || user.role === "guest") {
               Alert.alert(
                 "Yêu cầu đăng nhập",
-                "Bạn cần đăng nhập để chia sẻ bài hát lên bảng tin!",
-                [
-                  {
-                    text: "Đăng nhập",
-                    onPress: () =>
-                      console.log("Chuyển sang login screen nếu cần"),
-                  },
-                  {
-                    text: "Đăng ký",
-                    onPress: () =>
-                      console.log("Chuyển sang register screen nếu cần"),
-                  },
-                  { text: "Để sau", style: "cancel" },
-                ]
+                "Bạn cần đăng nhập để dùng tính năng này!"
               );
               return;
             }
-
-            setShowShare(true); // ✅ Chỉ mở modal nếu user đã đăng nhập
+            setShowMoreActions(true); // ✅ Mở menu hành động
           }}
         >
           <Ionicons name="ellipsis-horizontal" size={28} color="#fff" />
         </TouchableOpacity>
-
         <Image source={{ uri: song.thumbnail }} style={styles.cover} />
         <Text style={styles.title}>{song.title}</Text>
         <Text style={styles.artist}>{song.artist}</Text>
-
         {/* ❤️ Like */}
         <TouchableOpacity
           style={[
@@ -283,7 +328,6 @@ export default function FullPlayer({ song, onMinimize }: any) {
           />
           <Text style={styles.likeText}>{likes}</Text>
         </TouchableOpacity>
-
         {/* 🎚 Thanh tiến độ */}
         <View style={{ width: "90%", marginTop: 10 }}>
           <Slider
@@ -307,7 +351,6 @@ export default function FullPlayer({ song, onMinimize }: any) {
             <Text style={styles.time}>{fmt(duration)}</Text>
           </View>
         </View>
-
         {/* 🎵 Điều khiển */}
         <View style={styles.controls}>
           <TouchableOpacity onPress={previousSong}>
@@ -324,7 +367,6 @@ export default function FullPlayer({ song, onMinimize }: any) {
             <Ionicons name="play-skip-forward" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
-
         {/* 💬 Bình luận */}
         <View style={styles.commentBox}>
           <Text style={styles.commentTitle}>Bình luận</Text>
@@ -389,8 +431,67 @@ export default function FullPlayer({ song, onMinimize }: any) {
           </View>
         </View>
 
+        {/* ⋯ Menu hành động */}
+
+        <Modal
+          visible={showMoreActions}
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+          onRequestClose={() => setShowMoreActions(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.modalContent, { paddingVertical: 15 }]}>
+              <Text style={styles.modalTitle}>Tùy chọn</Text>
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMoreActions(false);
+                  setTimeout(() => setShowShare(true), 200); // ✅ Delay tránh đè overlay
+                }}
+              >
+                <Ionicons
+                  name="share-social-outline"
+                  size={20}
+                  color="#1DB954"
+                />
+                <Text style={styles.menuText}>Chia sẻ bài hát</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMoreActions(false);
+                  fetchUserPlaylists();
+                  setTimeout(() => setShowAddToPlaylist(true), 200); // ✅ Delay tránh lỗi mờ
+                }}
+              >
+                <Ionicons name="add-circle-outline" size={20} color="#1DB954" />
+                <Text style={styles.menuText}>Thêm vào playlist của tôi</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalBtn,
+                  { backgroundColor: "#666", marginTop: 10 },
+                ]}
+                onPress={() => setShowMoreActions(false)}
+              >
+                <Text style={styles.modalBtnText}>Đóng</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
         {/* 📤 Modal chia sẻ */}
-        <Modal visible={showShare} transparent animationType="fade">
+        <Modal
+          visible={showShare}
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+          onRequestClose={() => setShowShare(false)}
+        >
           <View style={styles.modalBackdrop}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Chia sẻ bài hát</Text>
@@ -418,6 +519,7 @@ export default function FullPlayer({ song, onMinimize }: any) {
                 >
                   <Text style={styles.modalBtnText}>Hủy</Text>
                 </TouchableOpacity>
+
                 <TouchableOpacity
                   disabled={!user || user.role === "guest"}
                   style={[
@@ -431,7 +533,7 @@ export default function FullPlayer({ song, onMinimize }: any) {
                     if (!user || user.role === "guest") {
                       Alert.alert(
                         "Yêu cầu đăng nhập",
-                        "Bạn cần đăng nhập để chia sẻ bài hát lên bảng tin!"
+                        "Bạn cần đăng nhập để chia sẻ bài hát!"
                       );
                       return;
                     }
@@ -446,13 +548,95 @@ export default function FullPlayer({ song, onMinimize }: any) {
             </View>
           </View>
         </Modal>
+
+        {/* 🎶 Modal thêm vào playlist cá nhân */}
+        <Modal
+          visible={showAddToPlaylist}
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+          onRequestClose={() => setShowAddToPlaylist(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View
+              style={[
+                styles.modalContent,
+                { paddingBottom: 10, alignItems: "stretch" },
+              ]}
+            >
+              <Text style={[styles.modalTitle, { alignSelf: "flex-start" }]}>
+                Thêm vào playlist của tôi
+              </Text>
+
+              <ScrollView style={{ width: "100%", maxHeight: 200 }}>
+                {userPlaylists.length === 0 ? (
+                  <Text
+                    style={{ color: "#aaa", textAlign: "center", marginTop: 5 }}
+                  >
+                    Bạn chưa có playlist nào.
+                  </Text>
+                ) : (
+                  userPlaylists.map((pl) => (
+                    <TouchableOpacity
+                      key={pl._id}
+                      style={styles.menuItem}
+                      onPress={() => addToExistingPlaylist(pl._id)}
+                    >
+                      <Ionicons
+                        name="musical-notes-outline"
+                        size={20}
+                        color="#4ADE80"
+                      />
+                      <Text style={styles.menuText}>{pl.title}</Text>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </ScrollView>
+
+              {/* 🆕 Tạo playlist mới */}
+              <View style={{ width: "100%", marginTop: 12 }}>
+                <Text style={styles.modalSubTitle}>Tạo playlist mới</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Nhập tên playlist..."
+                  placeholderTextColor="#aaa"
+                  value={newPlaylistName}
+                  onChangeText={setNewPlaylistName}
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.modalBtn,
+                    { backgroundColor: "#1DB954", marginTop: 5 },
+                  ]}
+                  onPress={createNewPlaylist}
+                >
+                  <Text style={styles.modalBtnText}>Tạo và thêm bài hát</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalBtn,
+                  { backgroundColor: "#888", marginTop: 10 },
+                ]}
+                onPress={() => setShowAddToPlaylist(false)}
+              >
+                <Text style={styles.modalBtnText}>Đóng</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  full: { ...StyleSheet.absoluteFillObject, backgroundColor: "#000", zIndex: 10000 },
+  full: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#000",
+    zIndex: 10000,
+  },
   bg: { position: "absolute", width, height, resizeMode: "cover" },
   overlay: {
     flex: 1,
@@ -475,7 +659,11 @@ const styles = StyleSheet.create({
   artist: { color: "#ddd", marginTop: 4 },
   likeBtn: { flexDirection: "row", alignItems: "center", marginTop: 10 },
   likeText: { color: "#fff", marginLeft: 6, fontSize: 14 },
-  timeRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 6 },
+  timeRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 6,
+  },
   time: { color: "#ccc", fontSize: 12 },
   controls: {
     flexDirection: "row",
@@ -494,7 +682,11 @@ const styles = StyleSheet.create({
   },
   commentTitle: { color: "#fff", fontWeight: "600", marginBottom: 6 },
   commentList: { maxHeight: 100 },
-  commentItem: { flexDirection: "row", alignItems: "flex-start", marginBottom: 6 },
+  commentItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 6,
+  },
   commentAvatar: { width: 30, height: 30, borderRadius: 15, marginRight: 8 },
   commentUser: { color: "#fff", fontWeight: "600" },
   commentText: { color: "#ddd" },
@@ -513,21 +705,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     fontSize: 14,
   },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
+modalBackdrop: {
+  flex: 1,
+  backgroundColor: "rgba(0,0,0,0.6)",
+  justifyContent: "center",
+  alignItems: "center",
+},
+modalContent: {
+  backgroundColor: "#222", // ✅ sáng hơn #1c1c1c để text rõ hơn
+  width: "85%",
+  borderRadius: 16,
+  padding: 20,
+  alignItems: "stretch",
+},
+modalTitle: {
+  color: "#fff",
+  fontSize: 18,
+  fontWeight: "600",
+  marginBottom: 10,
+  alignSelf: "flex-start",
+},
+  modalThumbnail: {
+    width: 120,
+    height: 120,
+    borderRadius: 12,
+    marginBottom: 10,
   },
-  modalContent: {
-    backgroundColor: "#1c1c1c",
-    width: "85%",
-    borderRadius: 16,
-    padding: 20,
-    alignItems: "center",
-  },
-  modalTitle: { color: "#fff", fontSize: 18, fontWeight: "600", marginBottom: 10 },
-  modalThumbnail: { width: 120, height: 120, borderRadius: 12, marginBottom: 10 },
   modalSongTitle: { color: "#fff", fontSize: 16, fontWeight: "700" },
   modalArtist: { color: "#bbb", marginBottom: 10 },
   modalInput: {
@@ -545,12 +748,44 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     width: "100%",
   },
-  modalBtn: {
-    flex: 1,
-    borderRadius: 8,
-    paddingVertical: 10,
-    marginHorizontal: 5,
-    alignItems: "center",
-  },
-  modalBtnText: { color: "#fff", fontWeight: "600" },
+modalBtn: {
+  borderRadius: 8,
+  paddingVertical: 12,
+  paddingHorizontal: 16,
+  marginVertical: 6,
+  alignItems: "center",
+  justifyContent: "center",
+  alignSelf: "center",
+  minWidth: "60%", // ✅ giúp nút to rõ
+  elevation: 2, // ✅ giúp nổi bật trên Android
+},
+modalBtnText: {
+  color: "#fff",
+  fontWeight: "700",
+  fontSize: 16,
+  textAlign: "center",
+},
+
+menuItem: {
+  flexDirection: "row",
+  alignItems: "center",
+  backgroundColor: "rgba(255,255,255,0.2)", // ✅ tăng độ tương phản
+  borderRadius: 8,
+  paddingVertical: 10,
+  paddingHorizontal: 14,
+  marginVertical: 5,
+  width: "100%",
+},
+menuText: {
+  color: "#fff",
+  fontSize: 15,
+  marginLeft: 10,
+},
+modalSubTitle: {
+  color: "#fff",
+  fontSize: 14,
+  marginBottom: 6,
+  fontWeight: "600",
+  alignSelf: "flex-start",
+},
 });

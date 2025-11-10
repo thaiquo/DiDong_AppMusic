@@ -16,9 +16,11 @@ import { API_URL } from "../config/api";
 import { useMusic } from "../context/MusicContext";
 import { useNavigation } from "@react-navigation/native";
 import { useIsFocused } from "@react-navigation/native";
+import MyPlaylistScreen from "./MyPlaylistScreen";
 
 const FILTERS = [
   { key: "favorites", label: "Your favorites" },
+  { key: "yourplaylists", label: "Your playlists" },
   { key: "history", label: "History" },
   { key: "artists", label: "Following artists" },
   { key: "followPlaylists", label: "Followed playlists" },
@@ -44,8 +46,8 @@ export default function LibraryScreen() {
   const [comments, setComments] = useState<any[]>([]);
   const [likeFeeds, setLikeFeeds] = useState<any[]>([]);
   const [commentFeeds, setCommentFeeds] = useState<any[]>([]);
-
-    const isFocused = useIsFocused();
+  const [myPlaylists, setMyPlaylists] = useState<any[]>([]);
+  const isFocused = useIsFocused();
 
   // get user info
   useEffect(() => {
@@ -60,19 +62,20 @@ export default function LibraryScreen() {
 
   // fetch all library data
   useEffect(() => {
-    if (!userId  || !isFocused) return;
+    if (!userId || !isFocused) return;
     (async () => {
       setLoading(true);
       try {
-        const [userRes, hisRes, plRes, cmRes,likeRes,commentFeedRes,] = await Promise.all([
-          axios.get(`${API_URL}/api/users/${userId}`),
-          axios.get(`${API_URL}/api/users/${userId}/history`),
-          axios.get(`${API_URL}/api/follow-playlist/user/${userId}`),
-          axios.get(`${API_URL}/api/comments/user/${userId}`),
-          axios.get(`${API_URL}/api/feed-likes/user/${userId}`),
-          axios.get(`${API_URL}/api/feed-comments/user/${userId}`),
-
-        ]);
+        const [userRes, hisRes, plRes, cmRes, likeRes, commentFeedRes,myPlaylists] =
+          await Promise.all([
+            axios.get(`${API_URL}/api/users/${userId}`),
+            axios.get(`${API_URL}/api/users/${userId}/history`),
+            axios.get(`${API_URL}/api/follow-playlist/user/${userId}`),
+            axios.get(`${API_URL}/api/comments/user/${userId}`),
+            axios.get(`${API_URL}/api/feed-likes/user/${userId}`),
+            axios.get(`${API_URL}/api/feed-comments/user/${userId}`),
+            axios.get(`${API_URL}/api/user-playlists/${userId}`),
+          ]);
 
         setFavoriteSongs(userRes.data.favoriteSongs || []);
         setArtists(userRes.data.followingArtists || []);
@@ -81,15 +84,14 @@ export default function LibraryScreen() {
         setComments(cmRes.data || []);
         setLikeFeeds(likeRes.data || []);
         setCommentFeeds(commentFeedRes.data || []);
+        setMyPlaylists(myPlaylists.data || []);  
       } catch (err) {
         console.warn("❌ Error loading library:", err);
       } finally {
         setLoading(false);
       }
     })();
-  }, [userId,isFocused]);
-
-  
+  }, [userId, isFocused]);
 
   // search filter for favorites
   const filteredFavs = favoriteSongs.filter(
@@ -159,7 +161,10 @@ export default function LibraryScreen() {
                 style={styles.songRow}
                 onPress={() => setSong(song, filteredFavs)}
               >
-                <Image source={{ uri: song.thumbnail }} style={styles.songImg} />
+                <Image
+                  source={{ uri: song.thumbnail }}
+                  style={styles.songImg}
+                />
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={styles.songTitle}>{song.title}</Text>
                   <Text style={styles.songArtist}>{song.artist}</Text>
@@ -171,7 +176,47 @@ export default function LibraryScreen() {
         </ScrollView>
       )}
 
-          {/* LIKED FEEDS */}
+      {/* YOUR PLAYLISTS */}
+      {selected === "yourplaylists" && (
+        <ScrollView>
+          {myPlaylists.length === 0 ? (
+            <Text style={styles.noData}>Bạn chưa tạo playlist nào.</Text>
+          ) : (
+            myPlaylists.map((pl) => (
+              <TouchableOpacity
+                key={pl._id}
+                style={styles.row}
+                onPress={() => navigation.navigate("MyPlaylistScreen", { playlist: pl })}
+
+              >
+                <Image
+                  source={{
+                    uri:
+                      pl.coverImage && pl.coverImage.trim() !== ""
+                        ? pl.coverImage
+                        : pl.songs[0]?.thumbnail || "https://picsum.photos/200",
+                  }}
+                  style={styles.playlistImg}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.playlistTitle}>{pl.title}</Text>
+                  <Text style={{ color: "#666", fontSize: 13 }}>
+                    {pl.songs?.length || 0} bài hát
+                  </Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward-outline"
+                  size={20}
+                  color="#999"
+                  style={{ marginLeft: 8 }}
+                />
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+      )}
+
+      {/* LIKED FEEDS */}
       {selected === "likefeed" && (
         <ScrollView>
           {likeFeeds.length === 0 ? (
@@ -255,12 +300,19 @@ export default function LibraryScreen() {
                 style={styles.songRow}
                 onPress={() => setSong(song, history)}
               >
-                <Image source={{ uri: song.thumbnail }} style={styles.songImg} />
+                <Image
+                  source={{ uri: song.thumbnail }}
+                  style={styles.songImg}
+                />
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={styles.songTitle}>{song.title}</Text>
                   <Text style={styles.songArtist}>{song.artist}</Text>
                 </View>
-                <Ionicons name="play-circle-outline" size={24} color="#7b2ff7" />
+                <Ionicons
+                  name="play-circle-outline"
+                  size={24}
+                  color="#7b2ff7"
+                />
               </TouchableOpacity>
             ))
           )}
@@ -339,54 +391,58 @@ export default function LibraryScreen() {
       )}
 
       {/* COMMENTS */}
-   {selected === "comments" && (
-      <ScrollView>
-    {comments.length === 0 ? (
-      <Text style={styles.noData}>Bạn chưa bình luận bài hát nào.</Text>
-    ) : (
-      comments.map((c) => (
-        <TouchableOpacity
-          key={c._id}
-          style={styles.commentRow}
-          onPress={() => {
-            if (c.song?.audioUrl) {
-              setSong(c.song, [c.song]); // ✅ phát nhạc
-            } else {
-              console.warn("⚠️ Bài hát này chưa có audioUrl:", c.song);
-              alert("Bài hát này chưa có file âm thanh hoặc bị lỗi!");
-            }
-          }}
-        >
-          <Image
-            source={{
-              uri: c.song?.thumbnail || "https://picsum.photos/100",
-            }}
-            style={styles.commentSongImg}
-          />
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={styles.commentSongTitle}>
-              {c.song?.title || "Bài hát"}
-            </Text>
-            <Text style={styles.commentText}>"{c.content}"</Text>
-          </View>
-          <Ionicons
-            name="play-circle-outline"
-            size={20}
-            color="#7b2ff7"
-            style={{ marginLeft: 8 }}
-          />
-        </TouchableOpacity>
-      ))
-    )}
-  </ScrollView>
+      {selected === "comments" && (
+        <ScrollView>
+          {comments.length === 0 ? (
+            <Text style={styles.noData}>Bạn chưa bình luận bài hát nào.</Text>
+          ) : (
+            comments.map((c) => (
+              <TouchableOpacity
+                key={c._id}
+                style={styles.commentRow}
+                onPress={() => {
+                  if (c.song?.audioUrl) {
+                    setSong(c.song, [c.song]); // ✅ phát nhạc
+                  } else {
+                    console.warn("⚠️ Bài hát này chưa có audioUrl:", c.song);
+                    alert("Bài hát này chưa có file âm thanh hoặc bị lỗi!");
+                  }
+                }}
+              >
+                <Image
+                  source={{
+                    uri: c.song?.thumbnail || "https://picsum.photos/100",
+                  }}
+                  style={styles.commentSongImg}
+                />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.commentSongTitle}>
+                    {c.song?.title || "Bài hát"}
+                  </Text>
+                  <Text style={styles.commentText}>"{c.content}"</Text>
+                </View>
+                <Ionicons
+                  name="play-circle-outline"
+                  size={20}
+                  color="#7b2ff7"
+                  style={{ marginLeft: 8 }}
+                />
+              </TouchableOpacity>
+            ))
           )}
-
+        </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", paddingTop: 18, paddingHorizontal: 16 },
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+    paddingTop: 18,
+    paddingHorizontal: 16,
+  },
   title: { fontSize: 22, fontWeight: "700", marginBottom: 12 },
   topRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
   filterBtn: {
@@ -445,7 +501,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   viewAllText: { color: "#7b2ff7", fontWeight: "600", marginRight: 4 },
-   feedRow: {
+  feedRow: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 14,
@@ -456,5 +512,4 @@ const styles = StyleSheet.create({
   feedImg: { width: 60, height: 60, borderRadius: 10 },
   feedTitle: { fontWeight: "600", color: "#000", fontSize: 15 },
   feedUser: { color: "#666", fontSize: 13 },
-
 });

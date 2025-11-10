@@ -15,6 +15,8 @@ import FeedScreen from "../screens/FeedScreen";
 import SearchScreen from "../screens/SearchScreen";
 import EditProfileScreen from "../screens/EditProfileScreen";
 
+import MyPlaylistScreen from "../screens/MyPlaylistScreen";
+
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
@@ -37,6 +39,9 @@ export default function AppNavigator() {
       <Stack.Screen name="FeedScreen" component={FeedScreen} />
       <Stack.Screen name="SearchScreen" component={SearchScreen} />
       <Stack.Screen name="EditProfileScreen" component={EditProfileScreen} />
+      <Stack.Screen name="MyPlaylistScreen" component={MyPlaylistScreen} options={{ title: "My Playlists" }} />
+      
+    
     </Stack.Navigator>
   );
 }
